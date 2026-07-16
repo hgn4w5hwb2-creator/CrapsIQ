@@ -1,1 +1,14 @@
-fastapi==0.109.0\nuvicorn[standard]==0.27.0\nopencv-python-headless==4.9.0.80\nnumpy==1.26.4\npython-multipart==0.0.6\nsqlalchemy==2.0.25\nalembic==1.13.1\npydantic==2.6.1\npython-dotenv==1.0.0\nbcrypt==4.1.1\npython-jose[cryptography]==3.3.0\npasslib[bcrypt]==1.8.0\npyjwt==2.9.1\ngunicorn==21.2.0\n
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+python-multipart==0.0.6
+sqlalchemy==2.0.25
+alembic==1.13.1
+pydantic==2.6.1
+python-dotenv==1.0.0
+bcrypt==4.1.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.8.0
+pyjwt==2.9.1
+gunicorn==21.2.0
