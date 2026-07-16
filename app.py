@@ -13,10 +13,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from craps_engine import CrapsEngine
-from database import Base, engine, get_db
+from database import Base, SQLITE, engine, get_db
 from models import GameSession, User
 
-SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
+configured_secret_key = os.getenv("SECRET_KEY")
+if configured_secret_key:
+    SECRET_KEY = configured_secret_key
+elif SQLITE:
+    SECRET_KEY = secrets.token_urlsafe(32)
+else:
+    raise RuntimeError("SECRET_KEY must be set when using a non-SQLite database")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -37,7 +43,11 @@ app.add_middleware(
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=8, max_length=72)
+    password: str = Field(
+        min_length=8,
+        max_length=72,
+        description="User password; bcrypt hashes only the first 72 characters",
+    )
 
 
 class LoginRequest(BaseModel):
