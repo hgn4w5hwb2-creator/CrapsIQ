@@ -1,1 +1,1 @@
-web: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT --no-access-log
+web: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
