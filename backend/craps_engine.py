@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List
+from typing import Dict
 
 class GameResult(str, Enum):
     COME_OUT_ROLL = "come_out_roll"
@@ -31,7 +31,6 @@ class CrapsEngine:
     
     def process_roll(self, total: int) -> GameResult:
         self.roll_history.append(total)
-        
         if self.phase == GamePhase.COME_OUT:
             return self._process_come_out_roll(total)
         else:
@@ -71,18 +70,16 @@ class CrapsEngine:
                 probabilities[i] = 4/36
             elif i == 6 or i == 8:
                 probabilities[i] = 5/36
-            else:  # 7
+            else:
                 probabilities[i] = 6/36
         return probabilities
     
     def calculate_odds_for_point(self) -> Dict:
         if not self.point:
             return {}
-        
         point = self.point
         prob_make_point = {4: 3/36, 5: 4/36, 6: 5/36, 8: 5/36, 9: 4/36, 10: 3/36}
         prob_seven = 6/36
-        
         return {
             "point": point,
             "prob_make_point": prob_make_point.get(point, 0),

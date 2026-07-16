@@ -6,7 +6,6 @@ Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
-    
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
@@ -16,7 +15,6 @@ class User(Base):
 
 class GameSession(Base):
     __tablename__ = "game_sessions"
-    
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, index=True)
     session_id = Column(String, unique=True, index=True)
@@ -26,7 +24,6 @@ class GameSession(Base):
 
 class Roll(Base):
     __tablename__ = "rolls"
-    
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, index=True)
     roll_number = Column(Integer)
@@ -38,7 +35,6 @@ class Roll(Base):
 
 class GameState(Base):
     __tablename__ = "game_states"
-    
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, index=True)
     phase = Column(String)
