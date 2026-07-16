@@ -11,11 +11,11 @@ from datetime import datetime, timedelta
 import uuid
 import os
 
-from .vision.vision_api import router as vision_router
-from .craps_engine import CrapsEngine, GameResult
-from .models import GameSession, Roll, GameState, User
-from .database import get_db, engine
-from . import models
+from vision.vision_api import router as vision_router
+from craps_engine import CrapsEngine, GameResult
+from models import GameSession, Roll, GameState, User
+from database import get_db, engine
+import models
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
@@ -77,7 +77,7 @@ app.add_middleware(
 )
 
 # Serve static files from frontend directory
-frontend_path = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend')
+frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
@@ -96,7 +96,7 @@ async def startup():
     print(f"API Docs: http://localhost:8000/docs")
     
     # Create demo user if it doesn't exist
-    from .database import SessionLocal
+    from database import SessionLocal
     db = SessionLocal()
     existing_user = db.query(User).filter(User.username == "demo").first()
     if not existing_user:
