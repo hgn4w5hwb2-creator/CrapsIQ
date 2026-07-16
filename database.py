@@ -1,21 +1,28 @@
 import os
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 def _database_url() -> str:
-    database_url = os.getenv("DATABASE_URL", "sqlite:///./crapsiq_dev.db")
-    if database_url.startswith("postgres://"):
-        return database_url.replace("postgres://", "postgresql+psycopg://", 1)
-    if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
-        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return database_url
+    url = os.getenv("DATABASE_URL", "sqlite:///./crapsiq.db")
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg2://", 1)
+    if url.startswith("postgresql://") and "+" not in url.split("://", 1)[0]:
+        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    return url
 
 
 DATABASE_URL = _database_url()
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
+SQLITE = DATABASE_URL.startswith("sqlite")
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if SQLITE else {},
+    pool_pre_ping=True,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
 
 def get_db():

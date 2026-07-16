@@ -4,63 +4,62 @@ from enum import Enum
 class GamePhase(str, Enum):
     COME_OUT = "come_out"
     POINT = "point"
-    ENDED = "ended"
 
 
-class GameResult(str, Enum):
+class RollResult(str, Enum):
     NATURAL = "natural"
     CRAPS = "craps"
     POINT_ESTABLISHED = "point_established"
     POINT_MADE = "point_made"
     SEVEN_OUT = "seven_out"
-    NO_DECISION = "no_decision"
+    ROLL_AGAIN = "roll_again"
 
 
 class CrapsEngine:
-    def __init__(self, phase: GamePhase = GamePhase.COME_OUT, point: int | None = None, roll_history: list[int] | None = None) -> None:
-        self.phase = phase
+    def __init__(self, phase: str = GamePhase.COME_OUT.value, point: int | None = None, roll_history: list | None = None):
+        try:
+            self.phase = GamePhase(phase)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported game phase: {phase}") from exc
         self.point = point
         self.roll_history = list(roll_history or [])
 
-    def get_game_state(self) -> dict:
-        return {
-            "phase": self.phase.value,
-            "point": self.point,
-            "total_rolls": len(self.roll_history),
-            "roll_history": self.roll_history,
-        }
-
-    def process_roll(self, dice_values: list[int]) -> tuple[int, GameResult]:
-        if self.phase == GamePhase.ENDED:
-            raise ValueError("Game has already ended")
-        if len(dice_values) != 2:
-            raise ValueError("Exactly two dice values are required")
-        if any(value < 1 or value > 6 for value in dice_values):
-            raise ValueError("Dice values must be in the range [1, 6]")
-
-        total = sum(dice_values)
-        self.roll_history.append(total)
+    def process_roll(self, die1: int, die2: int) -> dict:
+        total = die1 + die2
+        roll_number = len(self.roll_history) + 1
+        self.roll_history.append(
+            {
+                "roll_number": roll_number,
+                "die1": die1,
+                "die2": die2,
+                "total": total,
+            }
+        )
 
         if self.phase == GamePhase.COME_OUT:
             if total in (7, 11):
-                return total, GameResult.NATURAL
-            if total in (2, 3, 12):
-                return total, GameResult.CRAPS
-            self.phase = GamePhase.POINT
-            self.point = total
-            return total, GameResult.POINT_ESTABLISHED
-
-        if total == self.point:
+                result = RollResult.NATURAL
+            elif total in (2, 3, 12):
+                result = RollResult.CRAPS
+            else:
+                self.phase = GamePhase.POINT
+                self.point = total
+                result = RollResult.POINT_ESTABLISHED
+        elif total == 7:
             self.phase = GamePhase.COME_OUT
             self.point = None
-            return total, GameResult.POINT_MADE
-        if total == 7:
+            result = RollResult.SEVEN_OUT
+        elif total == self.point:
             self.phase = GamePhase.COME_OUT
             self.point = None
-            return total, GameResult.SEVEN_OUT
-        return total, GameResult.NO_DECISION
+            result = RollResult.POINT_MADE
+        else:
+            result = RollResult.ROLL_AGAIN
 
-    def end_game(self) -> dict:
-        self.phase = GamePhase.ENDED
-        self.point = None
-        return self.get_game_state()
+        return {
+            "result": result.value,
+            "phase": self.phase.value,
+            "point": self.point,
+            "roll_count": len(self.roll_history),
+            "roll_history": self.roll_history,
+        }

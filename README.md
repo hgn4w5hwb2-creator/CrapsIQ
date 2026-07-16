@@ -3,23 +3,20 @@
 Minimal root-level FastAPI API for CrapsIQ.
 
 ## Files
-
-- `app.py` - FastAPI app and endpoints
+- `app.py` - FastAPI application and endpoints
 - `models.py` - SQLAlchemy models
 - `database.py` - database configuration
 - `craps_engine.py` - craps game logic
 - `requirements.txt` - Python dependencies
-- `Procfile` - Railway process command
+- `Procfile` - Railway start command
 
-## Run locally
-
+## Local development
 ```bash
 pip install -r requirements.txt
 python -m uvicorn app:app --reload
 ```
 
 ## Endpoints
-
 - `GET /api/health`
 - `POST /auth/register`
 - `POST /auth/login`
@@ -28,9 +25,3 @@ python -m uvicorn app:app --reload
 - `POST /api/game/{session_id}/roll`
 - `GET /api/game/{session_id}`
 - `POST /api/game/{session_id}/end`
-
-## Database
-
-- Local development uses SQLite at `./crapsiq_dev.db`
-- Production uses `DATABASE_URL`
-- Tables are auto-created on startup
