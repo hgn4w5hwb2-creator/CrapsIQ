@@ -1,1 +1,1 @@
-fastapi==0.104.1\nuvicorn==0.24.0\nopencv-python==4.8.1.78\nnumpy==1.24.3\npython-multipart==0.0.6\nsqlalchemy==2.0.23\nalembic==1.13.0\npydantic==2.5.0\npython-dotenv==1.0.0\npytest==7.4.3\nbcrypt==4.1.0\npython-jose==3.3.0\npasslib==1.7.4\npyjwt==2.9.1\n
+fastapi==0.104.1\nuvicorn==0.24.0\nopencv-python-headless==4.8.1.78\nnumpy==1.24.3\npython-multipart==0.0.6\nsqlalchemy==2.0.23\nalembic==1.13.0\npydantic==2.5.0\npython-dotenv==1.0.0\npytest==7.4.3\nbcrypt==4.1.0\npython-jose==3.3.0\npasslib==1.8.0\npyjwt==2.9.1\n
