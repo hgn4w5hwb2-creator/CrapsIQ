@@ -21,7 +21,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False} if SQLITE else {},
     pool_pre_ping=True,
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 

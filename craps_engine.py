@@ -17,7 +17,10 @@ class RollResult(str, Enum):
 
 class CrapsEngine:
     def __init__(self, phase: str = GamePhase.COME_OUT.value, point: int | None = None, roll_history: list | None = None):
-        self.phase = GamePhase(phase)
+        try:
+            self.phase = GamePhase(phase)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported game phase: {phase}") from exc
         self.point = point
         self.roll_history = list(roll_history or [])
 

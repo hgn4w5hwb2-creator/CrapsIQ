@@ -34,7 +34,7 @@ app.add_middleware(
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=8, max_length=255)
+    password: str = Field(min_length=8, max_length=72)
 
 
 class LoginRequest(BaseModel):
@@ -224,7 +224,6 @@ def roll_game(
     game_session.point = result["point"]
     game_session.roll_count = result["roll_count"]
     game_session.roll_history = result["roll_history"]
-    game_session.updated_at = datetime.utcnow()
     db.commit()
 
     return RollResponse(
@@ -257,7 +256,6 @@ def end_game(
     if game_session.status != "ended":
         game_session.status = "ended"
         game_session.ended_at = datetime.utcnow()
-        game_session.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(game_session)
     return serialize_session(game_session)
