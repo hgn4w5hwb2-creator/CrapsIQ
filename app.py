@@ -46,7 +46,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(
         min_length=8,
         max_length=72,
-        description="User password; bcrypt hashes only the first 72 UTF-8 bytes",
+        description="User password; string length is capped at 72 characters and validation also enforces bcrypt's 72 UTF-8 byte limit",
     )
 
     @field_validator("password")
@@ -175,12 +175,12 @@ def get_owned_session(db: Session, session_id: str, user: User) -> GameSession:
 
 @app.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
-    existing_user = db.query(User).filter(User.username == payload.username).first()
-    if existing_user:
+    existing_user = db.query(User).filter(
+        (User.username == payload.username) | (User.email == payload.email)
+    ).first()
+    if existing_user and existing_user.username == payload.username:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
-
-    existing_email = db.query(User).filter(User.email == payload.email).first()
-    if existing_email:
+    if existing_user and existing_user.email == payload.email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
 
     user = User(
