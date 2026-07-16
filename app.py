@@ -255,7 +255,7 @@ def end_game(
     game_session = get_owned_session(db, session_id, current_user)
     if game_session.status != "ended":
         game_session.status = "ended"
-        game_session.ended_at = datetime.utcnow()
+        game_session.ended_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(game_session)
     return serialize_session(game_session)
