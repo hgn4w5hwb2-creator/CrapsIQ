@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, HTTPException
+from fastapi import APIRouter, UploadFile, HTTPException, Depends
 import numpy as np
 import cv2
 
@@ -7,6 +7,8 @@ from .pip_reader import PipReader
 from .calibration import get_calibration, DiceRegion, set_calibration
 from .table_utils import crop_table, apply_lighting_correction
 from ..craps_engine import CrapsEngine
+from ..database import get_db
+from sqlalchemy.orm import Session
 
 
 router = APIRouter()
@@ -69,7 +71,11 @@ async def calibrate_table(data: dict):
 
 
 @router.post("/vision/frame")
-async def analyze_frame(file: UploadFile, table_id: str = "default"):
+async def analyze_frame(
+    file: UploadFile,
+    table_id: str = "default",
+    db: Session = Depends(get_db)
+):
     """Analyze a single frame from the craps table.
     
     Args:
