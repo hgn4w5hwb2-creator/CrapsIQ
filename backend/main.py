@@ -10,26 +10,12 @@ import jwt
 from datetime import datetime, timedelta
 import uuid
 import os
-import sys
 
-# Add current directory to path so imports work
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-try:
-    from vision.vision_api import router as vision_router
-except ImportError:
-    # Fallback if import fails
-    from fastapi import APIRouter
-    router = APIRouter()
-    @router.get("/vision/detect")
-    async def detect_dice():
-        return {"status": "ok", "dice": [1, 2], "confidence": 0.95}
-    vision_router = router
-
-from craps_engine import CrapsEngine, GameResult
-from models import GameSession, Roll, GameState, User
-from database import get_db, engine
-import models
+from .vision.vision_api import router as vision_router
+from .craps_engine import CrapsEngine, GameResult
+from .models import GameSession, Roll, GameState, User
+from .database import get_db, engine
+from . import models
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
@@ -110,7 +96,7 @@ async def startup():
     print(f"API Docs: http://localhost:8000/docs")
     
     # Create demo user if it doesn't exist
-    from database import SessionLocal
+    from .database import SessionLocal
     db = SessionLocal()
     existing_user = db.query(User).filter(User.username == "demo").first()
     if not existing_user:
