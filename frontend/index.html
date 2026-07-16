@@ -5,15 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎲 CrapsIQ — Live Dealer Dashboard</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="auth-check.js"></script>
 </head>
 <body>
 
 <header class="header">
     <div class="header-content">
         <h1>🎲 CrapsIQ — Live Dealer Dashboard</h1>
-        <div class="header-status">
-            <span id="api-status" class="status-badge">● API</span>
-            <span id="vision-status" class="status-badge">● Vision</span>
+        <div class="header-actions">
+            <span id="current-user" class="user-display">User</span>
+            <button onclick="logout()" class="btn-logout">🚪 Logout</button>
+            <div class="header-status">
+                <span id="api-status" class="status-badge">● API</span>
+                <span id="vision-status" class="status-badge">● Vision</span>
+            </div>
         </div>
     </div>
 </header>

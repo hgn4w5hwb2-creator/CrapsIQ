@@ -1,20 +1,65 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from passlib.context import CryptContext
+import jwt
+from datetime import datetime, timedelta
 import uuid
-from datetime import datetime
 import os
 
 from .vision.vision_api import router as vision_router
 from .craps_engine import CrapsEngine, GameResult
-from .models import GameSession, Roll, GameState
+from .models import GameSession, Roll, GameState, User
 from .database import get_db, engine
 from . import models
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
+
+# JWT config
+SECRET_KEY = os.getenv("SECRET_KEY", "crapsiq-secret-key-change-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+# JWT
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
+        return username
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
 
 app = FastAPI(
     title="CrapsIQ API",
@@ -39,46 +84,144 @@ if os.path.exists(frontend_path):
 # Include routers
 app.include_router(vision_router, prefix="/api")
 
-# In-memory game engines (in production, use Redis or database)
+# In-memory game engines
 game_engines = {}
 
-
+# Create demo user on startup
 @app.on_event("startup")
 async def startup():
     """Initialize on startup."""
     print("🎲 CrapsIQ API started")
-    print(f"Frontend: http://localhost:8000")
+    print(f"Frontend: http://localhost:8000/login.html")
     print(f"API Docs: http://localhost:8000/docs")
+    
+    # Create demo user if it doesn't exist
+    from .database import SessionLocal
+    db = SessionLocal()
+    existing_user = db.query(User).filter(User.username == "demo").first()
+    if not existing_user:
+        demo_user = User(
+            username="demo",
+            email="demo@crapsiq.com",
+            hashed_password=hash_password("demo123"),
+            is_active=True
+        )
+        db.add(demo_user)
+        db.commit()
+        print("✅ Demo user created: demo / demo123")
+    db.close()
 
-
+# Root - serve login page
 @app.get("/")
 async def root():
-    """Serve frontend HTML."""
-    frontend_file = os.path.join(frontend_path, 'index.html')
-    if os.path.exists(frontend_file):
-        return FileResponse(frontend_file, media_type='text/html')
-    return {"status": "ok", "service": "CrapsIQ API", "message": "Visit /docs for API documentation"}
+    """Serve login HTML."""
+    login_file = os.path.join(frontend_path, 'login.html')
+    if os.path.exists(login_file):
+        return FileResponse(login_file, media_type='text/html')
+    return {"status": "ok", "service": "CrapsIQ API"}
 
+# Auth endpoints
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+@app.post("/auth/register")
+async def register(username: str, email: str, password: str, db: Session = Depends(get_db)):
+    """Register a new user."""
+    # Check if user exists
+    existing_user = db.query(User).filter(
+        (User.username == username) |
+        (User.email == email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email already registered"
+        )
+    
+    # Create new user
+    hashed_password = hash_password(password)
+    new_user = User(
+        username=username,
+        email=email,
+        hashed_password=hashed_password
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return {
+        "message": "User registered successfully",
+        "user": {
+            "id": new_user.id,
+            "username": new_user.username,
+            "email": new_user.email
+        }
+    }
+
+@app.post("/auth/login")
+async def login(username: str, password: str, db: Session = Depends(get_db)):
+    """Login user and return JWT token."""
+    # Find user
+    db_user = db.query(User).filter(
+        User.username == username
+    ).first()
+    
+    if not db_user or not verify_password(password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password"
+        )
+    
+    # Create token
+    access_token = create_access_token(data={"sub": db_user.username})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": db_user.id,
+            "username": db_user.username,
+            "email": db_user.email,
+            "is_active": db_user.is_active
+        }
+    }
+
+@app.get("/auth/me")
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Get current user info."""
+    username = verify_token(token)
+    user = db.query(User).filter(User.username == username).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_active": user.is_active
+    }
 
 @app.get("/api/health")
 async def health():
     """Health check."""
     return {"status": "ok", "service": "CrapsIQ API"}
 
-
 @app.post("/api/game/start")
-async def start_game(db: Session = Depends(get_db)):
-    """Start a new craps game session.
+async def start_game(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Start a new craps game session."""
+    username = verify_token(token)
+    user = db.query(User).filter(User.username == username).first()
     
-    Returns:
-        dict with session_id and initial game state
-    """
     session_id = str(uuid.uuid4())
     engine = CrapsEngine()
     game_engines[session_id] = engine
 
-    # Save to database
     db_session = GameSession(
+        user_id=user.id,
         session_id=session_id,
         started_at=datetime.utcnow()
     )
@@ -91,24 +234,17 @@ async def start_game(db: Session = Depends(get_db)):
         "probabilities": engine.calculate_roll_probabilities()
     }
 
-
 @app.post("/api/game/{session_id}/roll")
 async def process_roll(
     session_id: str,
     dice_values: list,
     confidence: float,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    """Process a roll in an active game.
+    """Process a roll in an active game."""
+    verify_token(token)
     
-    Args:
-        session_id: Game session ID
-        dice_values: [die1, die2]
-        confidence: Detection confidence (0-1)
-        
-    Returns:
-        dict with game result, updated state, and recommendations
-    """
     if session_id not in game_engines:
         raise HTTPException(
             status_code=404,
@@ -124,10 +260,8 @@ async def process_roll(
     engine = game_engines[session_id]
     roll_total = sum(dice_values)
 
-    # Process roll
     result = engine.process_roll(roll_total)
 
-    # Save roll to database
     db_roll = Roll(
         session_id=session_id,
         roll_number=len(engine.roll_history),
@@ -138,7 +272,6 @@ async def process_roll(
     )
     db.add(db_roll)
 
-    # Save game state
     db_state = GameState(
         session_id=session_id,
         phase=engine.phase.value,
@@ -161,20 +294,15 @@ async def process_roll(
         "next_probabilities": engine.calculate_roll_probabilities()
     }
 
-
 @app.get("/api/game/{session_id}")
 async def get_game(
     session_id: str,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    """Get current game state.
+    """Get current game state."""
+    verify_token(token)
     
-    Args:
-        session_id: Game session ID
-        
-    Returns:
-        dict with complete game state and history
-    """
     if session_id not in game_engines:
         raise HTTPException(
             status_code=404,
@@ -183,7 +311,6 @@ async def get_game(
 
     engine = game_engines[session_id]
 
-    # Get rolls from database
     rolls = db.query(Roll).filter(
         Roll.session_id == session_id
     ).all()
@@ -205,20 +332,15 @@ async def get_game(
         "ai_recommendation": engine.get_ai_recommendation()
     }
 
-
 @app.post("/api/game/{session_id}/end")
 async def end_game(
     session_id: str,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    """End a game session.
+    """End a game session."""
+    verify_token(token)
     
-    Args:
-        session_id: Game session ID
-        
-    Returns:
-        dict with final statistics
-    """
     if session_id not in game_engines:
         raise HTTPException(
             status_code=404,
@@ -227,7 +349,6 @@ async def end_game(
 
     engine = game_engines[session_id]
 
-    # Update database
     db_session = db.query(GameSession).filter(
         GameSession.session_id == session_id
     ).first()
@@ -237,7 +358,6 @@ async def end_game(
         db_session.total_rolls = len(engine.roll_history)
         db.commit()
 
-    # Clean up in-memory engine
     del game_engines[session_id]
 
     return {
@@ -249,17 +369,12 @@ async def end_game(
         ).total_seconds() if db_session else 0
     }
 
-
 @app.get("/api/probabilities")
-async def get_probabilities():
-    """Get all possible roll probabilities.
-    
-    Returns:
-        dict with probabilities for each roll (2-12)
-    """
+async def get_probabilities(token: str = Depends(oauth2_scheme)):
+    """Get all possible roll probabilities."""
+    verify_token(token)
     engine = CrapsEngine()
     return engine.calculate_roll_probabilities()
-
 
 if __name__ == "__main__":
     import uvicorn
