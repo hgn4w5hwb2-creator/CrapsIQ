@@ -1,4 +1,6 @@
+import logging
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -14,12 +16,13 @@ from craps_engine import CrapsEngine
 from database import Base, engine, get_db
 from models import GameSession, User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 auth_scheme = HTTPBearer()
+logger = logging.getLogger("crapsiq")
 
 app = FastAPI(title="CrapsIQ API", version="1.0.0")
 app.add_middleware(
@@ -85,6 +88,8 @@ class RollResponse(BaseModel):
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    if not os.getenv("SECRET_KEY"):
+        logger.warning("SECRET_KEY is not set; using an ephemeral development key")
 
 
 @app.get("/api/health")
@@ -253,9 +258,11 @@ def end_game(
     db: Session = Depends(get_db),
 ) -> GameStateResponse:
     game_session = get_owned_session(db, session_id, current_user)
-    if game_session.status != "ended":
-        game_session.status = "ended"
-        game_session.ended_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(game_session)
+    if game_session.status != "active":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Game session has ended")
+
+    game_session.status = "ended"
+    game_session.ended_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(game_session)
     return serialize_session(game_session)
