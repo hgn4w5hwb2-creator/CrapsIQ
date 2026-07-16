@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from craps_engine import CrapsEngine
@@ -46,8 +46,15 @@ class RegisterRequest(BaseModel):
     password: str = Field(
         min_length=8,
         max_length=72,
-        description="User password; bcrypt hashes only the first 72 characters",
+        description="User password; bcrypt hashes only the first 72 UTF-8 bytes",
     )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_bytes(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 UTF-8 bytes or fewer")
+        return value
 
 
 class LoginRequest(BaseModel):

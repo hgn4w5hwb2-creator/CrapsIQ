@@ -26,7 +26,7 @@ class GameSession(Base):
     phase = Column(String(20), default="come_out", nullable=False)
     point = Column(Integer, nullable=True)
     roll_count = Column(Integer, default=0, nullable=False)
-    roll_history = Column(JSON, default=lambda: [], nullable=False)
+    roll_history = Column(JSON, default=list, nullable=False)
     started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     ended_at = Column(DateTime, nullable=True)
     updated_at = Column(
