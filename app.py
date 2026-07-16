@@ -1,5 +1,7 @@
+import logging
 import os
-from datetime import datetime, timedelta
+import secrets
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -7,29 +9,41 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 
 from craps_engine import CrapsEngine, GamePhase
 from database import engine, get_db
 from models import Base, GameSession, User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+logger = logging.getLogger("crapsiq")
 
 
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
-    email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=8, max_length=128)
+    email: EmailStr
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+        description="User password; it must include letters and numbers and is hashed before storage",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not any(character.isalpha() for character in value) or not any(character.isdigit() for character in value):
+            raise ValueError("Password must include both letters and numbers")
+        return value
 
 
 class LoginRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(max_length=128, description="Plaintext password before hashing")
 
 
 class RollRequest(BaseModel):
@@ -45,7 +59,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(username: str) -> str:
-    expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": username, "exp": expires_at}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -97,7 +111,7 @@ def serialize_session(game_session: GameSession) -> dict:
         "session_id": game_session.session_id,
         "phase": game_session.phase,
         "point": game_session.point,
-        "roll_history": game_session.roll_history or [],
+        "roll_history": game_session.roll_history,
         "total_rolls": game_session.total_rolls,
         "last_result": game_session.last_result,
         "is_active": game_session.is_active,
@@ -125,6 +139,8 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    if not os.getenv("SECRET_KEY"):
+        logger.warning("SECRET_KEY is not set; using an ephemeral development key")
 
 
 @app.get("/api/health")
@@ -202,7 +218,7 @@ def roll_game(
     engine_instance = CrapsEngine(
         phase=GamePhase(game_session.phase),
         point=game_session.point,
-        roll_history=game_session.roll_history or [],
+        roll_history=game_session.roll_history,
     )
 
     try:
@@ -241,7 +257,7 @@ def end_game(session_id: str, current_user: User = Depends(get_current_user), db
     engine_instance = CrapsEngine(
         phase=GamePhase(game_session.phase),
         point=game_session.point,
-        roll_history=game_session.roll_history or [],
+        roll_history=game_session.roll_history,
     )
     final_state = engine_instance.end_game()
 
@@ -250,7 +266,7 @@ def end_game(session_id: str, current_user: User = Depends(get_current_user), db
     game_session.roll_history = final_state["roll_history"]
     game_session.total_rolls = final_state["total_rolls"]
     game_session.is_active = False
-    game_session.ended_at = datetime.utcnow()
+    game_session.ended_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(game_session)
 

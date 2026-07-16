@@ -31,6 +31,6 @@ python -m uvicorn app:app --reload
 
 ## Database
 
-- Local development uses SQLite at `./crapsiq.db`
+- Local development uses SQLite at `./crapsiq_dev.db`
 - Production uses `DATABASE_URL`
 - Tables are auto-created on startup

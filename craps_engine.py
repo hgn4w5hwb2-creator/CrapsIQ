@@ -17,7 +17,7 @@ class GameResult(str, Enum):
 
 
 class CrapsEngine:
-    def __init__(self, phase: GamePhase = GamePhase.COME_OUT, point: int | None = None, roll_history: list[int] | None = None):
+    def __init__(self, phase: GamePhase = GamePhase.COME_OUT, point: int | None = None, roll_history: list[int] | None = None) -> None:
         self.phase = phase
         self.point = point
         self.roll_history = list(roll_history or [])
@@ -36,7 +36,7 @@ class CrapsEngine:
         if len(dice_values) != 2:
             raise ValueError("Exactly two dice values are required")
         if any(value < 1 or value > 6 for value in dice_values):
-            raise ValueError("Dice values must be between 1 and 6")
+            raise ValueError("Dice values must be in the range [1, 6]")
 
         total = sum(dice_values)
         self.roll_history.append(total)

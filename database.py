@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 def _database_url() -> str:
-    database_url = os.getenv("DATABASE_URL", "sqlite:///./crapsiq.db")
+    database_url = os.getenv("DATABASE_URL", "sqlite:///./crapsiq_dev.db")
     if database_url.startswith("postgres://"):
         return database_url.replace("postgres://", "postgresql+psycopg://", 1)
     if database_url.startswith("postgresql://") and "+psycopg" not in database_url:
