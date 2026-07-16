@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎲 CrapsIQ — Live Dealer Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-content">
+        <h1>🎲 CrapsIQ — Live Dealer Dashboard</h1>
+        <div class="header-status">
+            <span id="api-status" class="status-badge">● API</span>
+            <span id="vision-status" class="status-badge">● Vision</span>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Left Panel: Video & Controls -->
+    <div class="left-panel">
+        
+        <div class="card">
+            <div class="card-title">📹 Live Screen Capture</div>
+            <div class="video-controls">
+                <button class="btn btn-primary" onclick="startScreenShare()">
+                    ▶ Start Screen Share
+                </button>
+                <button class="btn btn-secondary" onclick="stopScreenShare()">
+                    ⏹ Stop
+                </button>
+            </div>
+            <p id="capture-status" class="status-text">Ready to capture...</p>
+            <video id="screenVideo" class="video-display" autoplay playsinline></video>
+        </div>
+
+        <div class="card">
+            <div class="card-title">⚙️ Table Calibration</div>
+            <div class="calibration-inputs">
+                <label>Dice Region X:</label>
+                <input type="number" id="cal-x" value="100" class="input-small">
+                
+                <label>Y:</label>
+                <input type="number" id="cal-y" value="50" class="input-small">
+                
+                <label>Width:</label>
+                <input type="number" id="cal-width" value="400" class="input-small">
+                
+                <label>Height:</label>
+                <input type="number" id="cal-height" value="300" class="input-small">
+            </div>
+            <div class="calibration-inputs">
+                <label>Camera Angle (°):</label>
+                <input type="number" id="cal-angle" value="0" step="0.1" class="input-small">
+                
+                <label>Lighting Level:</label>
+                <input type="range" id="cal-lighting" min="0" max="1" step="0.1" value="0.5" class="input-range">
+                <span id="lighting-value">0.5</span>
+            </div>
+            <button class="btn btn-success" onclick="calibrateTable()">
+                ✓ Save Calibration
+            </button>
+            <p id="calibration-status" class="status-text"></p>
+        </div>
+
+    </div>
+
+    <!-- Right Panel: Game Info -->
+    <div class="right-panel">
+        
+        <div class="card">
+            <div class="card-title">🎰 Current Roll</div>
+            <div class="roll-display">
+                <div class="dice-value">
+                    <span class="label">Dice</span>
+                    <div class="value" id="roll-dice">--</div>
+                </div>
+                <div class="dice-value">
+                    <span class="label">Total</span>
+                    <div class="value highlight" id="roll-total">--</div>
+                </div>
+                <div class="dice-value">
+                    <span class="label">Confidence</span>
+                    <div class="value" id="roll-confidence">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📊 Game State</div>
+            <div class="game-state">
+                <div class="state-item">
+                    <span class="label">Phase:</span>
+                    <span class="value" id="game-phase">Come Out</span>
+                </div>
+                <div class="state-item">
+                    <span class="label">Point:</span>
+                    <span class="value highlight" id="game-point">-</span>
+                </div>
+                <div class="state-item">
+                    <span class="label">Rolls:</span>
+                    <span class="value" id="game-rolls">0</span>
+                </div>
+                <div class="state-item">
+                    <span class="label">Last Result:</span>
+                    <span class="value" id="game-result">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📈 Odds</div>
+            <div class="odds-display" id="odds-container">
+                <p class="text-muted">Awaiting point...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🔮 Roll Probabilities</div>
+            <div class="probabilities" id="probabilities-container">
+                <p class="text-muted">Loading...</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Bottom Panel: Roll History & AI Coach -->
+<div class="bottom-panel">
+
+    <div class="card">
+        <div class="card-title">📜 Roll History</div>
+        <div class="roll-history" id="roll-history">
+            <p class="text-muted">No rolls yet...</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">🤖 AI Coach</div>
+        <div class="ai-coach" id="ai-coach">
+            <p class="text-muted">Waiting for game data...</p>
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
