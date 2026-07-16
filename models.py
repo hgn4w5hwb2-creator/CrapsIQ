@@ -1,44 +1,32 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
-Base = declarative_base()
+from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String
+
+from database import Base
+
 
 class User(Base):
     __tablename__ = "users"
+
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
 
 class GameSession(Base):
     __tablename__ = "game_sessions"
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
-    session_id = Column(String, unique=True, index=True)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    session_id = Column(String(36), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, index=True, nullable=False)
+    status = Column(String(20), default="active", nullable=False)
+    phase = Column(String(20), default="come_out", nullable=False)
+    point = Column(Integer, nullable=True)
+    roll_count = Column(Integer, default=0, nullable=False)
+    roll_history = Column(JSON, default=lambda: [], nullable=False)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     ended_at = Column(DateTime, nullable=True)
-    total_rolls = Column(Integer, default=0)
-
-class Roll(Base):
-    __tablename__ = "rolls"
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String, index=True)
-    roll_number = Column(Integer)
-    dice_values = Column(JSON)
-    total = Column(Integer)
-    game_result = Column(String)
-    confidence = Column(Float)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class GameState(Base):
-    __tablename__ = "game_states"
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String, index=True)
-    phase = Column(String)
-    current_point = Column(Integer, nullable=True)
-    roll_history = Column(JSON)
-    odds = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
