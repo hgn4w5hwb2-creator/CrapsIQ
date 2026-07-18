@@ -8,7 +8,7 @@ def _database_url() -> str:
     url = os.getenv("DATABASE_URL", "sqlite:///./crapsiq.db")
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg2://", 1)
-    if url.startswith("postgresql://") and "+" not in url.split("://", 1)[0]:
+    if url.startswith("postgresql://") and "+" not in url:
         return url.replace("postgresql://", "postgresql+psycopg2://", 1)
     return url
 

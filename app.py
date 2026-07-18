@@ -1,4 +1,6 @@
+import logging
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -7,19 +9,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from craps_engine import CrapsEngine
-from database import Base, engine, get_db
+from database import Base, SQLITE, engine, get_db
 from models import GameSession, User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+configured_secret_key = os.getenv("SECRET_KEY")
+if configured_secret_key:
+    SECRET_KEY = configured_secret_key
+elif SQLITE:
+    SECRET_KEY = secrets.token_urlsafe(32)
+else:
+    raise RuntimeError("SECRET_KEY must be set when using a non-SQLite database")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 auth_scheme = HTTPBearer()
+logger = logging.getLogger("crapsiq")
 
 app = FastAPI(title="CrapsIQ API", version="1.0.0")
 app.add_middleware(
@@ -34,7 +43,18 @@ app.add_middleware(
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=8, max_length=72)
+    password: str = Field(
+        min_length=8,
+        max_length=72,
+        description="User password; string length is capped at 72 characters and validation also enforces bcrypt's 72 UTF-8 byte limit",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_bytes(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 UTF-8 bytes or fewer")
+        return value
 
 
 class LoginRequest(BaseModel):
@@ -85,6 +105,8 @@ class RollResponse(BaseModel):
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    if not os.getenv("SECRET_KEY"):
+        logger.warning("SECRET_KEY is not set; using an ephemeral development key")
 
 
 @app.get("/api/health")
@@ -153,12 +175,12 @@ def get_owned_session(db: Session, session_id: str, user: User) -> GameSession:
 
 @app.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> User:
-    existing_user = db.query(User).filter(User.username == payload.username).first()
-    if existing_user:
+    existing_user = db.query(User).filter(
+        (User.username == payload.username) | (User.email == payload.email)
+    ).first()
+    if existing_user and existing_user.username == payload.username:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists")
-
-    existing_email = db.query(User).filter(User.email == payload.email).first()
-    if existing_email:
+    if existing_user and existing_user.email == payload.email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
 
     user = User(
@@ -253,9 +275,11 @@ def end_game(
     db: Session = Depends(get_db),
 ) -> GameStateResponse:
     game_session = get_owned_session(db, session_id, current_user)
-    if game_session.status != "ended":
-        game_session.status = "ended"
-        game_session.ended_at = datetime.utcnow()
-        db.commit()
-        db.refresh(game_session)
+    if game_session.status != "active":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Game session has ended")
+
+    game_session.status = "ended"
+    game_session.ended_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(game_session)
     return serialize_session(game_session)
